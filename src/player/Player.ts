@@ -5,14 +5,16 @@ import { PlayerHealth } from './PlayerHealth';
 import { PlayerAnimationController, ClipMap } from './PlayerAnimationController';
 import { PlayerController } from './PlayerController';
 
+// Use BASE_URL so paths work both locally (/) and on GitHub Pages (/unity-2/)
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, ''); // strip trailing slash
 const ANIM_FILES: Record<string, string> = {
-  idle:     '/movements/Breathing Idle.fbx',
-  walk:     '/movements/Walking.fbx',
-  run:      '/movements/Standard Run.fbx',
-  sprint:   '/movements/Running.fbx',
-  jump:     '/movements/Jumping.fbx',
-  jumpDown: '/movements/Jumping Down.fbx',
-  slide:    '/movements/Running Slide.fbx',
+  idle:     `${BASE}/movements/Breathing Idle.fbx`,
+  walk:     `${BASE}/movements/Walking.fbx`,
+  run:      `${BASE}/movements/Standard Run.fbx`,
+  sprint:   `${BASE}/movements/Running.fbx`,
+  jump:     `${BASE}/movements/Jumping.fbx`,
+  jumpDown: `${BASE}/movements/Jumping Down.fbx`,
+  slide:    `${BASE}/movements/Running Slide.fbx`,
 };
 
 // ─── Fallback humanoid built from Three.js primitives ────────────────────────
@@ -207,9 +209,9 @@ export class Player {
    */
   private async loadBackflip(loader: import('three/examples/jsm/loaders/FBXLoader.js').FBXLoader): Promise<void> {
     const candidates = [
-      '/movements/Backflip.fbx',
-      '/movements/Back Flip.fbx',
-      '/movements/Standing Back Flip.fbx',
+      `${BASE}/movements/Backflip.fbx`,
+      `${BASE}/movements/Back Flip.fbx`,
+      `${BASE}/movements/Standing Back Flip.fbx`,
     ];
     for (const path of candidates) {
       try {
@@ -233,9 +235,9 @@ export class Player {
    */
   private async loadSlide(loader: import('three/examples/jsm/loaders/FBXLoader.js').FBXLoader): Promise<void> {
     const candidates = [
-      '/movements/Running Slide.fbx',
-      '/movements/Slide.fbx',
-      '/movements/RunningSlide.fbx',
+      `${BASE}/movements/Running Slide.fbx`,
+      `${BASE}/movements/Slide.fbx`,
+      `${BASE}/movements/RunningSlide.fbx`,
     ];
     for (const path of candidates) {
       try {

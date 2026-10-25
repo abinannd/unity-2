@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <a href="YOUR_DEPLOYED_GAME_URL_HERE"><b>Play the Game</b></a>
+  <a href="https://abinannd.github.io/unity-2/"><b>Play the Game</b></a>
   &nbsp;|&nbsp;
   <a href="https://github.com/abinannd/unity-2"><b>Repository</b></a>
 </p>
@@ -192,7 +192,7 @@ Third-party tools and assets remain subject to their respective licenses and ter
 
 ## License
 
-Unless a license is explicitly provided in this repository, the source code and bundled assets should not be assumed to be freely available for redistribution or commercial reuse.
+This project is licensed under the [MIT License](LICENSE). Copyright (c) 2026 Haroon Muhammed Riyas.
 
 ---
 
