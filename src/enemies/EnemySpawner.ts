@@ -80,7 +80,11 @@ export class EnemySpawner {
     let hit = 0;
     for (const enemy of this.enemies) {
       if (enemy.isDead) continue;
-      if (enemy.position.distanceTo(pos) <= radius) {
+      const dx = enemy.position.x - pos.x;
+      const dz = enemy.position.z - pos.z;
+      const horizDist = Math.sqrt(dx * dx + dz * dz);
+      const vertDist = Math.abs(enemy.position.y - pos.y);
+      if (horizDist <= radius && vertDist <= 3.5) {
         const wasAlive = !enemy.isDead;
         enemy.takeDamage(damage);
         hit++;

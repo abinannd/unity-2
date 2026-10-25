@@ -114,9 +114,9 @@ export class HUD {
     this.introScreen.className = 'screen';
     this.introScreen.innerHTML = `
       <h1>SURVIVAL ARENA</h1>
-      <p>WASD — Move &nbsp;|&nbsp; SPACE — Jump &nbsp;|&nbsp; Mouse — Aim / Look</p>
-      <p>Left Click — Fire projectile</p>
-      <p>Double-SHIFT — Speed Burst</p>
+      <p>WASD — Move &nbsp;|&nbsp; SPACE — Jump &nbsp;|&nbsp; C — Running Slide</p>
+      <p>Left Click — Fire projectile &nbsp;|&nbsp; Right Click (Air) — Ground Slam</p>
+      <p>R — Grapple &nbsp;|&nbsp; Double-SHIFT — Speed Burst</p>
       <p>Survive as long as you can.</p>
       <button id="start-btn">START GAME</button>
     `;

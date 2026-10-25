@@ -12,6 +12,7 @@ const ANIM_FILES: Record<string, string> = {
   sprint:   '/movements/Running.fbx',
   jump:     '/movements/Jumping.fbx',
   jumpDown: '/movements/Jumping Down.fbx',
+  slide:    '/movements/Running Slide.fbx',
 };
 
 // ─── Fallback humanoid built from Three.js primitives ────────────────────────
@@ -189,6 +190,8 @@ export class Player {
 
         // ── Attempt to load optional backflip (wall-jump) animation ──────
         this.loadBackflip(loader);
+        // ── Attempt to load running slide animation ───────────────────────
+        this.loadSlide(loader);
       } catch (err) {
         console.error('[Player] AnimationController init failed:', err);
       }
@@ -222,6 +225,32 @@ export class Player {
       }
     }
     console.warn('[Player] Backflip FBX not found in movements/. Wall-jump physics still active. Add Backflip.fbx to public/movements/ to enable the animation.');
+  }
+
+  /**
+   * Attempt to load the running slide animation clip from the movements folder.
+   * Registers the clip with the animation controller.
+   */
+  private async loadSlide(loader: import('three/examples/jsm/loaders/FBXLoader.js').FBXLoader): Promise<void> {
+    const candidates = [
+      '/movements/Running Slide.fbx',
+      '/movements/Slide.fbx',
+      '/movements/RunningSlide.fbx',
+    ];
+    for (const path of candidates) {
+      try {
+        const fbx = await loader.loadAsync(path) as unknown as { animations: THREE.AnimationClip[] };
+        if (fbx.animations.length > 0) {
+          const clip = fbx.animations[0];
+          this.animCtrl.registerSlideClip(clip);
+          console.info(`[Player] Running Slide loaded from: ${path}`);
+          return;
+        }
+      } catch {
+        // Not found at this path — try next
+      }
+    }
+    console.warn('[Player] Running Slide FBX not found in movements/. Slide physics still active.');
   }
 
   update(dt: number): void {

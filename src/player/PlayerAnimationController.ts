@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PLAYER } from '../game/GameConfig';
 
-export type AnimState = 'idle' | 'walk' | 'run' | 'sprint' | 'jump' | 'jumpDown' | 'wallJump';
+export type AnimState = 'idle' | 'walk' | 'run' | 'sprint' | 'jump' | 'jumpDown' | 'wallJump' | 'slide';
 
 export interface ClipMap {
   idle: THREE.AnimationClip;
@@ -10,6 +10,7 @@ export interface ClipMap {
   sprint: THREE.AnimationClip;
   jump: THREE.AnimationClip;
   jumpDown: THREE.AnimationClip;
+  slide?: THREE.AnimationClip;
 }
 
 export class PlayerAnimationController {
@@ -22,9 +23,10 @@ export class PlayerAnimationController {
     this.mixer = new THREE.AnimationMixer(root);
 
     for (const [key, clip] of Object.entries(clips) as [AnimState, THREE.AnimationClip][]) {
+      if (!clip) continue;
       const action = this.mixer.clipAction(clip);
-      // Jump/landing/walljump animations should NOT loop
-      if (key === 'jump' || key === 'jumpDown' || key === 'wallJump') {
+      // Jump/landing/walljump/slide animations should NOT loop
+      if (key === 'jump' || key === 'jumpDown' || key === 'wallJump' || key === 'slide') {
         action.setLoop(THREE.LoopOnce, 1);
         action.clampWhenFinished = true;
       }
@@ -48,13 +50,25 @@ export class PlayerAnimationController {
     console.info('[AnimController] Wall-jump (backflip) clip registered.');
   }
 
+  /**
+   * Register or override slide clip after construction.
+   */
+  registerSlideClip(clip: THREE.AnimationClip): void {
+    clip.name = 'slide';
+    const action = this.mixer.clipAction(clip);
+    action.setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished = true;
+    this.actions['slide'] = action;
+    console.info('[AnimController] Slide clip registered.');
+  }
+
   play(state: AnimState, fadeTime = 0.2): void {
     if (state === this.currentState) return;
 
     const next = this.actions[state];
     if (!next) {
-      // wallJump missing is expected when FBX not found — degrade silently
-      if (state !== 'wallJump') {
+      // wallJump and slide missing is expected when FBX not found — degrade silently
+      if (state !== 'wallJump' && state !== 'slide') {
         console.warn(`[AnimController] No clip for state: ${state}`);
       }
       return;
@@ -79,6 +93,22 @@ export class PlayerAnimationController {
     return this.actions['wallJump'] != null;
   }
 
+  /** True if the slide clip is currently playing. */
+  isPlayingSlide(): boolean {
+    return this.currentState === 'slide';
+  }
+
+  /** True if slide clip was registered. */
+  hasSlide(): boolean {
+    return this.actions['slide'] != null;
+  }
+
+  getSlideDuration(): number {
+    const act = this.actions['slide'];
+    if (act) return act.getClip().duration;
+    return 0.75;
+  }
+
   update(dt: number): void {
     this.mixer.update(dt);
   }
@@ -87,7 +117,7 @@ export class PlayerAnimationController {
 
   /**
    * Resolve which ground state to play based on speed and burst flag.
-   * Does NOT handle jump — the caller is responsible.
+   * Does NOT handle jump or slide — the caller is responsible.
    */
   resolveGroundState(speed: number, isBurst: boolean): AnimState {
     if (isBurst) return 'sprint';

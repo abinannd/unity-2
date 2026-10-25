@@ -22,6 +22,8 @@ export class Enemy {
   private readonly baseEmissiveIntensity: number;
   private bobTime = 0;
 
+  private readonly scene: THREE.Scene;
+
   /** Called when this enemy successfully hits the player. */
   onAttackPlayer?: (damage: number) => void;
 
@@ -31,6 +33,7 @@ export class Enemy {
     public readonly maxHealth: number,
     public readonly isRed: boolean = false,
   ) {
+    this.scene = scene;
     this.health = maxHealth;
     this.mesh = new THREE.Group();
 
@@ -138,9 +141,57 @@ export class Enemy {
     }
   }
 
+  /**
+   * Accurate 3D cylinder hit detection against a projectile's path.
+   * Checks horizontal distance to enemy axis AND vertical extent (feet to head).
+   */
+  checkHit(pos: THREE.Vector3, prevPos: THREE.Vector3, radius: number): boolean {
+    if (this.state === 'DEAD') return false;
+
+    const enemyRadius = (this.isRed ? 0.45 : 0.4) + radius;
+    const enemyHeight = this.isRed ? 2.0 : 1.8;
+    const minY = this.mesh.position.y;
+    const maxY = minY + enemyHeight;
+
+    // Check vertical overlap
+    const projMinY = Math.min(pos.y, prevPos.y) - radius;
+    const projMaxY = Math.max(pos.y, prevPos.y) + radius;
+    if (projMaxY < minY || projMinY > maxY) return false;
+
+    // Check 2D distance from enemy center to projectile segment (prevPos -> pos)
+    const ex = this.mesh.position.x;
+    const ez = this.mesh.position.z;
+    const sx = pos.x - prevPos.x;
+    const sz = pos.z - prevPos.z;
+    const segLenSq = sx * sx + sz * sz;
+
+    let distSq: number;
+    if (segLenSq < 0.0001) {
+      const dx = pos.x - ex;
+      const dz = pos.z - ez;
+      distSq = dx * dx + dz * dz;
+    } else {
+      const t = Math.max(0, Math.min(1, ((ex - prevPos.x) * sx + (ez - prevPos.z) * sz) / segLenSq));
+      const closestX = prevPos.x + t * sx;
+      const closestZ = prevPos.z + t * sz;
+      const dx = closestX - ex;
+      const dz = closestZ - ez;
+      distSq = dx * dx + dz * dz;
+    }
+
+    return distSq <= enemyRadius * enemyRadius;
+  }
+
   takeDamage(amount: number): void {
     if (this.state === 'DEAD') return;
     this.health -= amount;
+
+    if (this.health <= 0) {
+      this.health = 0;
+      this.die();
+      return;
+    }
+
     this.glowMat.emissive.setHex(0xffffff);
     this.glowMat.emissiveIntensity = 2.0;
     setTimeout(() => {
@@ -149,19 +200,28 @@ export class Enemy {
         this.glowMat.emissiveIntensity = this.baseEmissiveIntensity;
       }
     }, 120);
-    if (this.health <= 0) this.die();
   }
 
   private die(): void {
     this.state = 'DEAD';
     this.mesh.visible = false;
+    this.scene.remove(this.mesh);
   }
 
-  dispose(scene: THREE.Scene): void {
-    scene.remove(this.mesh);
-    this.body.geometry.dispose();
-    this.head.geometry.dispose();
-    this.glowMat.dispose();
+  dispose(scene?: THREE.Scene): void {
+    const s = scene ?? this.scene;
+    s.remove(this.mesh);
+    this.mesh.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh) {
+        const m = obj as THREE.Mesh;
+        m.geometry?.dispose();
+        if (Array.isArray(m.material)) {
+          m.material.forEach((mat) => mat.dispose());
+        } else {
+          m.material?.dispose();
+        }
+      }
+    });
   }
 
   get isDead(): boolean { return this.state === 'DEAD'; }

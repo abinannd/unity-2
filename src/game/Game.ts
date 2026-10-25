@@ -121,6 +121,7 @@ export class Game {
       if (e.code === 'Escape' && this.state === 'PLAYING') {
         this.state = 'PAUSED';
         this.grapple.endGrapple();
+        this.player.controller.cancelSlide();
         this.hud.showPause();
       }
     });
@@ -155,6 +156,7 @@ export class Game {
 
     this.player.mesh.position.set(0, 0, 0);
     this.player.health.reset();
+    this.player.controller.cancelSlide();
     this.hud.updateHealth(this.player.health.hp, this.player.health.max);
 
     this.enemySpawner.reset();
@@ -171,6 +173,7 @@ export class Game {
     this.hud.showGameOver(this.kills, this.survivalTime);
     this.healRing.visible = false;
     this.hud.setSafeBlockIndicator(false);
+    this.player.controller.cancelSlide();
     this.grapple.reset();
     if (document.pointerLockElement) document.exitPointerLock();
   }

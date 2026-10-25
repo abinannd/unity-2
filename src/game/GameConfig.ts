@@ -111,3 +111,9 @@ export const DIFFICULTY = {
   enemyHealthIncrement: 0,  // keep fixed at 40 (ordinary) and 60 (red) so hit counts remain exact
   enemySpeedIncrement: 0.2,
 };
+
+export const SLIDE = {
+  duration: 0.75,           // seconds slide animation and momentum lasts
+  initialSpeed: 13.5,       // starting slide speed burst (tapers to run speed)
+  cooldown: 0.35,           // seconds before next slide can be triggered
+};

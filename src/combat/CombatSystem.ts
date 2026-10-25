@@ -49,6 +49,7 @@ export class CombatSystem {
 
     for (const p of this.projectiles) {
       p.life -= dt;
+      const prevPos = p.mesh.position.clone();
       p.mesh.position.addScaledVector(p.velocity, dt);
 
       const pos = p.mesh.position;
@@ -64,7 +65,7 @@ export class CombatSystem {
         if (enemy.isDead) continue;
         const uid = enemy._uid;
         if (p.hitEnemyIds.has(uid)) continue;
-        if (enemy.position.distanceTo(pos) <= COMBAT.projectileRadius + 0.4) {
+        if (enemy.checkHit(pos, prevPos, COMBAT.projectileRadius)) {
           p.hitEnemyIds.add(uid);
           const wasAlive = !enemy.isDead;
           enemy.takeDamage(COMBAT.projectileDamage);

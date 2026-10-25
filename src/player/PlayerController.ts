@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAYER, WALL_JUMP, ARENA, CLIMB } from '../game/GameConfig';
+import { PLAYER, WALL_JUMP, ARENA, CLIMB, SLIDE } from '../game/GameConfig';
 import { Arena } from '../arena/Arena';
 import { PlayerAnimationController, AnimState } from './PlayerAnimationController';
 import type { Block } from '../obstacles/Block';
@@ -51,6 +51,13 @@ export class PlayerController {
 
   // Facing
   private facingAngle = 0;
+
+  // Slide state
+  private isSliding = false;
+  private slideTimer = 0;
+  private slideDuration = SLIDE.duration;
+  private slideCooldownTimer = 0;
+  private readonly _slideDir = new THREE.Vector3();
 
   // Injected systems (optional)
   private animCtrl: PlayerAnimationController | null = null;
@@ -213,6 +220,9 @@ export class PlayerController {
       case 'ShiftRight':
         this.handleShift();
         break;
+      case 'KeyC':
+        this.tryTriggerSlide();
+        break;
     }
   }
 
@@ -235,6 +245,48 @@ export class PlayerController {
       this.burstCooldownTimer = PLAYER.burstCooldown;
     }
     this.lastShiftTime = now;
+  }
+
+  // ── Running slide ─────────────────────────────────────────────────────────
+
+  private tryTriggerSlide(): void {
+    if (this.isSliding || this.slideCooldownTimer > 0) return;
+    if (!this.isGrounded || this.wallJumping) return;
+    if (this.climbState !== 'none') return;
+    if (this.grapple?.isGrappling || this.groundSlam?.isSlamming) return;
+
+    // Trigger only when grounded and moving
+    const hasInput = this.input.forward || this.input.backward || this.input.left || this.input.right;
+    const horizSpeed = Math.sqrt(this.velocity.x * this.velocity.x + this.velocity.z * this.velocity.z);
+    if (!hasInput && horizSpeed < 0.5) return;
+
+    this.isSliding = true;
+    this.slideDuration = this.animCtrl?.hasSlide() ? this.animCtrl.getSlideDuration() : SLIDE.duration;
+    this.slideTimer = this.slideDuration;
+
+    // Lock slide direction to current movement or facing direction
+    if (this._moveDir.lengthSq() > 0.001) {
+      this._slideDir.copy(this._moveDir).normalize();
+    } else {
+      this._slideDir.set(Math.sin(this.facingAngle), 0, Math.cos(this.facingAngle)).normalize();
+    }
+
+    const angle = Math.atan2(this._slideDir.x, this._slideDir.z);
+    this.facingAngle = angle;
+    this.mesh.rotation.y = angle;
+
+    this.animCtrl?.play('slide', 0.1);
+  }
+
+  cancelSlide(): void {
+    if (this.isSliding) {
+      this.isSliding = false;
+      this.slideTimer = 0;
+      this.slideCooldownTimer = SLIDE.cooldown;
+      if (!this.animCtrl || !this.animCtrl.hasSlide()) {
+        this.mesh.rotation.x = 0;
+      }
+    }
   }
 
   // ── Wall-jump helpers ─────────────────────────────────────────────────────
@@ -421,23 +473,50 @@ export class PlayerController {
     // ── Grapple overrides horizontal movement ─────────────────────────────
     const grappling = this.grapple?.isGrappling ?? false;
 
+    if (this.slideCooldownTimer > 0) this.slideCooldownTimer -= dt;
+
+    if (this.isSliding) {
+      this.slideTimer -= dt;
+      if (this.slideTimer <= 0) {
+        this.cancelSlide();
+      }
+    }
+
     if (grappling && this.grapple) {
+      this.cancelSlide();
       const gv = this.grapple.grappleVelocity;
       this.velocity.x = gv.x;
       this.velocity.z = gv.z;
       // Allow grapple to pull upward too
       this.verticalVelocity = gv.y !== 0 ? gv.y : this.verticalVelocity;
+    } else if (this.isSliding) {
+      // Slide momentum: initial impulse smoothly decaying toward run speed
+      const progress = Math.max(0, this.slideTimer / this.slideDuration);
+      const targetEndSpeed = this.burstActive ? PLAYER.burstSpeed : PLAYER.runSpeed;
+      const slideSpeed = targetEndSpeed + (SLIDE.initialSpeed - targetEndSpeed) * (progress * progress);
+      this.velocity.x = this._slideDir.x * slideSpeed;
+      this.velocity.z = this._slideDir.z * slideSpeed;
+
+      // Visual tilt for fallback character
+      if (!this.animCtrl || !this.animCtrl.hasSlide()) {
+        this.mesh.rotation.x = 0.3;
+      }
     } else if (!this.wallJumping) {
+      if (!this.animCtrl || !this.animCtrl.hasSlide()) {
+        this.mesh.rotation.x = 0;
+      }
       const speed = this.burstActive && hasDir ? PLAYER.burstSpeed : hasDir ? PLAYER.runSpeed : 0;
       this.velocity.x = this._moveDir.x * speed;
       this.velocity.z = this._moveDir.z * speed;
     } else if (this.wallJumping && hasDir) {
+      this.cancelSlide();
       this.velocity.x += this._moveDir.x * PLAYER.runSpeed * 0.4 * dt * 8;
       this.velocity.z += this._moveDir.z * PLAYER.runSpeed * 0.4 * dt * 8;
     }
 
     // ── Ground jump ────────────────────────────────────────────────────────
     if (this.input.jump && this.isGrounded && !grappling) {
+      this.cancelSlide();
       this.verticalVelocity = PLAYER.jumpForce;
       this.isGrounded = false;
       this.input.jump = false;
@@ -495,7 +574,7 @@ export class PlayerController {
     this.arena.clampPosition(this.mesh.position, PLAYER.colliderRadius);
 
     // ── Facing ────────────────────────────────────────────────────────────
-    if (hasDir && !this.wallJumping && !grappling) {
+    if (hasDir && !this.wallJumping && !grappling && !this.isSliding) {
       const targetAngle = Math.atan2(this._moveDir.x, this._moveDir.z);
       const diff = targetAngle - this.facingAngle;
       const wrap = Math.atan2(Math.sin(diff), Math.cos(diff));
@@ -508,17 +587,28 @@ export class PlayerController {
     if (!this.animCtrl) return;
 
     if (this.climbState !== 'none') {
+      this.cancelSlide();
       this.animCtrl.play('jump', 0.2); // use jump anim as climb placeholder
       return;
     }
 
-    if (this.animCtrl.isPlayingWallJump()) return;
+    if (this.animCtrl.isPlayingWallJump()) {
+      this.cancelSlide();
+      return;
+    }
 
     if (!this.isGrounded) {
+      this.cancelSlide();
       const nextAir: AnimState = this.verticalVelocity > 0 ? 'jump' : 'jumpDown';
       this.animCtrl.play(nextAir, 0.15);
       return;
     }
+
+    if (this.isSliding) {
+      this.animCtrl.play('slide', 0.1);
+      return;
+    }
+
     const horizSpeed = Math.sqrt(this.velocity.x ** 2 + this.velocity.z ** 2);
     this.animCtrl.play(this.animCtrl.resolveGroundState(horizSpeed, this.burstActive), 0.2);
   }
@@ -526,4 +616,5 @@ export class PlayerController {
   get position(): THREE.Vector3 { return this.mesh.position; }
   get isInBurst(): boolean { return this.burstActive; }
   get grounded(): boolean { return this.isGrounded; }
+  get sliding(): boolean { return this.isSliding; }
 }
