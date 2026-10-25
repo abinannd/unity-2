@@ -27,10 +27,6 @@ export class Arena {
       metalness: 0.15,
     });
 
-    const ceilMat = new THREE.MeshStandardMaterial({
-      color: 0x0d0d1a,
-      roughness: 1,
-    });
 
     // ── Floor ──────────────────────────────────────────────────────────────
     const floorGeo = new THREE.BoxGeometry(size, wallThickness, size);
@@ -44,11 +40,7 @@ export class Arena {
     this.floorMesh.position.y = -wallThickness / 2;
     this.group.add(this.floorMesh);
 
-    // ── Ceiling ────────────────────────────────────────────────────────────
-    const ceilGeo = new THREE.BoxGeometry(size, wallThickness, size);
-    const ceil = new THREE.Mesh(ceilGeo, ceilMat);
-    ceil.position.y = wallHeight + wallThickness / 2;
-    this.group.add(ceil);
+    // ── Ceiling removed — open-top arena ─────────────────────────────────
 
     // ── Four walls ─────────────────────────────────────────────────────────
     const wallDefs: [number, number, number, number][] = [
@@ -72,8 +64,8 @@ export class Arena {
     // ── Edge glow strips ──────────────────────────────────────────────────
     this.addGlowStrips(halfSize, wallHeight);
 
-    // ── Grid overlay on floor — green tones ──────────────────────────────
-    const grid = new THREE.GridHelper(size, 24, 0x1a6b30, 0x0e4020);
+    // ── Grid overlay on floor — earthy root-line tones ────────────────────
+    const grid = new THREE.GridHelper(size, 24, 0x1a0e06, 0x120a04);
     grid.position.y = 0.01;
     this.group.add(grid);
 
@@ -82,10 +74,11 @@ export class Arena {
   }
 
   private addGlowStrips(halfSize: number, wallHeight: number): void {
+    // Mossy/vine glow strips — warm amber torchlight colour
     const stripMat = new THREE.MeshStandardMaterial({
-      color: 0x00d4ff,
-      emissive: 0x00d4ff,
-      emissiveIntensity: 1.5,
+      color: 0xffaa22,
+      emissive: 0xff8800,
+      emissiveIntensity: 1.2,
     });
     const stripHeight = 0.08;
     const size = halfSize * 2;
@@ -115,31 +108,61 @@ export class Arena {
   }
 
   private addLighting(): void {
-    // Ambient
-    const ambient = new THREE.AmbientLight(0x2a4a2a, 1.4);
+    // HemisphereLight — simulates open sky over a forest, main source of brightness
+    const hemi = new THREE.HemisphereLight(
+      0xc8d8ff,   // sky colour — bright daylight blue-white
+      0x4a3820,   // ground colour — warm earth bounce
+      2.2,        // intensity — strong open-sky illumination
+    );
+    this.group.add(hemi);
+
+    // Ambient fill so no face is completely black
+    const ambient = new THREE.AmbientLight(0xfff5e0, 1.0);
     this.group.add(ambient);
 
-    // Main overhead directional
-    const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-    dir.position.set(0, 15, 5);
+    // Main overhead sun — warm golden daylight
+    const dir = new THREE.DirectionalLight(0xfff0cc, 2.0);
+    dir.position.set(8, 20, 10);
     dir.castShadow = true;
     dir.shadow.mapSize.width = 2048;
     dir.shadow.mapSize.height = 2048;
     dir.shadow.camera.near = 0.1;
-    dir.shadow.camera.far = 80;
-    dir.shadow.camera.left = -30;
-    dir.shadow.camera.right = 30;
-    dir.shadow.camera.top = 30;
-    dir.shadow.camera.bottom = -30;
+    dir.shadow.camera.far = 100;
+    dir.shadow.camera.left = -35;
+    dir.shadow.camera.right = 35;
+    dir.shadow.camera.top = 35;
+    dir.shadow.camera.bottom = -35;
+    dir.shadow.bias = -0.001;
     this.group.add(dir);
 
-    // Coloured point lights at corners for sci-fi feel
-    const colors = [0x0080ff, 0xff4040, 0x00ff80, 0xff8000];
-    const half = ARENA.halfSize * 0.7;
+    // Opposite sky fill — keeps shadows soft and readable
+    const fill = new THREE.DirectionalLight(0xb0d0ff, 0.9);
+    fill.position.set(-10, 12, -8);
+    this.group.add(fill);
+
+    // Rim light from behind for depth
+    const rim = new THREE.DirectionalLight(0xffd080, 0.5);
+    rim.position.set(0, 6, -20);
+    this.group.add(rim);
+
+    // Warm corner torches — accent, not primary illumination
+    const cornerColors = [0xff6b20, 0xff8c40, 0xff6b20, 0xff8c40];
+    const half = ARENA.halfSize * 0.75;
     [[-half, -half], [-half, half], [half, -half], [half, half]].forEach(([x, z], i) => {
-      const pt = new THREE.PointLight(colors[i], 1.5, 25);
-      pt.position.set(x, 4, z);
+      const pt = new THREE.PointLight(cornerColors[i], 1.8, 20);
+      pt.position.set(x, 2.5, z);
       this.group.add(pt);
+
+      // Torch emissive mesh
+      const torchMat = new THREE.MeshStandardMaterial({
+        color: 0xff8c20,
+        emissive: 0xff6010,
+        emissiveIntensity: 2.5,
+      });
+      const torchGeo = new THREE.BoxGeometry(0.12, 0.4, 0.12);
+      const torch = new THREE.Mesh(torchGeo, torchMat);
+      torch.position.set(x * 0.93, 2.8, z * 0.93);
+      this.group.add(torch);
     });
   }
 
@@ -151,44 +174,79 @@ export class Arena {
   }
 
   /**
-   * Build a CanvasTexture with a radial green gradient.
-   * Centre: vivid green (#39E75F) — Perimeter: deep green (#087F23)
-   * Light grid lines baked in for spatial readability.
+   * Build a CanvasTexture with a rich forest floor appearance:
+   * dark loamy soil with moss patches, subtle dirt trails, and root-texture details.
    */
   private buildFloorTexture(_arenaSize: number): THREE.CanvasTexture {
-    const RES = 512;
+    const RES = 1024;
     const canvas = document.createElement('canvas');
     canvas.width = RES;
     canvas.height = RES;
     const ctx = canvas.getContext('2d')!;
 
-    // Radial gradient: bright centre → dark edge
-    const cx = RES / 2;
-    const cy = RES / 2;
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, RES * 0.68);
-    grad.addColorStop(0.00, '#A7FF83');  // highlight centre
-    grad.addColorStop(0.18, '#39E75F');  // vivid green mid-centre
-    grad.addColorStop(0.55, '#1AAD45');  // mid tone
-    grad.addColorStop(0.82, '#0C7A2A');  // darkening toward edge
-    grad.addColorStop(1.00, '#087F23');  // deep green at perimeter
-    ctx.fillStyle = grad;
+    // Base — warm earthy soil (brighter for open-sky lighting)
+    ctx.fillStyle = '#4a3520';
     ctx.fillRect(0, 0, RES, RES);
 
-    // Subtle darker grid lines baked into the texture
-    ctx.strokeStyle = 'rgba(4,50,15,0.35)';
-    ctx.lineWidth = 1;
-    const cells = 16;
-    const step = RES / cells;
-    for (let i = 0; i <= cells; i++) {
-      const p = i * step;
-      ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, RES); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(RES, p); ctx.stroke();
+    // Radial worn ground patch at center
+    const cx = RES / 2, cy = RES / 2;
+    const base = ctx.createRadialGradient(cx, cy, 0, cx, cy, RES * 0.55);
+    base.addColorStop(0.00, '#7a5e3a');  // bright worn dirt centre
+    base.addColorStop(0.30, '#5e4520');  // mid soil
+    base.addColorStop(0.65, '#3e2e12');  // darker soil
+    base.addColorStop(1.00, '#2a1e0c');  // shadow at edges
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, RES, RES);
+
+    // Moss patches — scattered organic blobs
+    const mossPalette = ['#2d5c1e', '#3a7a28', '#1e4a14', '#2a6620', '#4a8c30'];
+    for (let i = 0; i < 60; i++) {
+      const mx = Math.random() * RES;
+      const mz = Math.random() * RES;
+      const mr = 15 + Math.random() * 50;
+      const mc = mossPalette[Math.floor(Math.random() * mossPalette.length)];
+      const mg = ctx.createRadialGradient(mx, mz, 0, mx, mz, mr);
+      mg.addColorStop(0, mc + 'cc');
+      mg.addColorStop(0.6, mc + '66');
+      mg.addColorStop(1, mc + '00');
+      ctx.fillStyle = mg;
+      ctx.beginPath();
+      ctx.ellipse(mx, mz, mr, mr * (0.5 + Math.random() * 0.8), Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
     }
 
-    // Soft vignette ring at the very edge
-    const edge = ctx.createRadialGradient(cx, cy, RES * 0.6, cx, cy, RES * 0.72);
+    // Root/crack lines
+    ctx.strokeStyle = 'rgba(12,8,4,0.55)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 30; i++) {
+      const sx = Math.random() * RES;
+      const sy = Math.random() * RES;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      let curX = sx, curY = sy;
+      for (let seg = 0; seg < 6; seg++) {
+        curX += (Math.random() - 0.5) * 60;
+        curY += (Math.random() - 0.5) * 60;
+        ctx.lineTo(curX, curY);
+      }
+      ctx.stroke();
+    }
+
+    // Subtle scattered pebbles (tiny circles)
+    for (let i = 0; i < 80; i++) {
+      const px = Math.random() * RES;
+      const py = Math.random() * RES;
+      const pr = 2 + Math.random() * 5;
+      ctx.fillStyle = `rgba(${100 + Math.random()*60 | 0},${90 + Math.random()*50 | 0},${70 + Math.random()*40 | 0},0.6)`;
+      ctx.beginPath();
+      ctx.ellipse(px, py, pr, pr * 0.7, Math.random() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Edge vignette — dark forest shadow
+    const edge = ctx.createRadialGradient(cx, cy, RES * 0.45, cx, cy, RES * 0.72);
     edge.addColorStop(0, 'rgba(0,0,0,0)');
-    edge.addColorStop(1, 'rgba(0,0,0,0.28)');
+    edge.addColorStop(1, 'rgba(0,0,0,0.55)');
     ctx.fillStyle = edge;
     ctx.fillRect(0, 0, RES, RES);
 
@@ -199,8 +257,8 @@ export class Arena {
   }
 
   /**
-   * Build a CanvasTexture with a vertical grey gradient for the arena walls.
-   * Bottom: dark grey (#30343B) → mid: medium grey (#686F78) → top: light (#B8BEC6)
+   * Build a CanvasTexture for arena walls — mossy stone look.
+   * Dark stone base with green moss streaks, horizontal mortar lines.
    */
   private buildWallTexture(): THREE.CanvasTexture {
     const W = 256;
@@ -210,31 +268,42 @@ export class Arena {
     canvas.height = H;
     const ctx = canvas.getContext('2d')!;
 
-    // Vertical gradient: dark at the bottom, light at the top
+    // Base stone gradient
     const grad = ctx.createLinearGradient(0, H, 0, 0);
-    grad.addColorStop(0.00, '#30343B');
-    grad.addColorStop(0.45, '#686F78');
-    grad.addColorStop(0.80, '#9AA0A8');
-    grad.addColorStop(1.00, '#B8BEC6');
+    grad.addColorStop(0.00, '#2a2218');
+    grad.addColorStop(0.40, '#3e3226');
+    grad.addColorStop(0.80, '#4a3c2c');
+    grad.addColorStop(1.00, '#38302a');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
 
-    // Subtle horizontal panel lines
-    ctx.strokeStyle = 'rgba(30,34,40,0.22)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 8; i++) {
-      const y = Math.round((i / 8) * H);
+    // Stone block pattern
+    ctx.strokeStyle = 'rgba(15,12,8,0.6)';
+    ctx.lineWidth = 2;
+    const blockH = 40;
+    for (let row = 0; row < H / blockH; row++) {
+      const y = row * blockH;
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      // Offset vertical lines per row
+      const offset = (row % 2) * (W / 3);
+      for (let col = 0; col < 3; col++) {
+        const vx = ((col * W / 2) + offset) % W;
+        ctx.beginPath(); ctx.moveTo(vx, y); ctx.lineTo(vx, y + blockH); ctx.stroke();
+      }
     }
 
-    // Faint vertical centre highlight
-    const hl = ctx.createLinearGradient(0, 0, W, 0);
-    hl.addColorStop(0.0,  'rgba(255,255,255,0)');
-    hl.addColorStop(0.45, 'rgba(255,255,255,0.055)');
-    hl.addColorStop(0.55, 'rgba(255,255,255,0.055)');
-    hl.addColorStop(1.0,  'rgba(255,255,255,0)');
-    ctx.fillStyle = hl;
-    ctx.fillRect(0, 0, W, H);
+    // Moss streaks
+    const mossPalette = ['rgba(30,70,20,0.3)', 'rgba(40,90,25,0.2)', 'rgba(20,55,15,0.25)'];
+    for (let i = 0; i < 15; i++) {
+      const sx = Math.random() * W;
+      const sy = Math.random() * H * 0.5 + H * 0.3; // mostly lower half
+      const mg = ctx.createLinearGradient(sx, sy, sx + (Math.random() - 0.5) * 40, sy + 60 + Math.random() * 80);
+      mg.addColorStop(0, 'transparent');
+      mg.addColorStop(0.3, mossPalette[i % mossPalette.length]);
+      mg.addColorStop(1, 'transparent');
+      ctx.fillStyle = mg;
+      ctx.fillRect(sx - 8, sy, 16 + Math.random() * 20, 80 + Math.random() * 60);
+    }
 
     const tex = new THREE.CanvasTexture(canvas);
     tex.wrapS = THREE.RepeatWrapping;

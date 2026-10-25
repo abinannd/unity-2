@@ -5,6 +5,7 @@ import { PlayerAnimationController, AnimState } from './PlayerAnimationControlle
 import type { Block } from '../obstacles/Block';
 import type { GroundSlam } from '../combat/GroundSlam';
 import type { GrappleSystem } from '../combat/GrappleSystem';
+import { AudioManager } from '../audio/AudioManager';
 
 interface InputState {
   forward: boolean;
@@ -319,6 +320,7 @@ export class PlayerController {
     this.mesh.rotation.y = angle;
 
     this.animCtrl?.play('wallJump', 0.1);
+    AudioManager.getInstance().playJump();
   }
 
   // ── Climbing helpers ──────────────────────────────────────────────────────
@@ -521,6 +523,7 @@ export class PlayerController {
       this.isGrounded = false;
       this.input.jump = false;
       this.onPlatform = false;
+      AudioManager.getInstance().playJump();
     }
 
     // ── Wall jump ──────────────────────────────────────────────────────────

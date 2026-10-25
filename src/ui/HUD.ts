@@ -41,7 +41,7 @@ export class HUD {
       #crosshair::after  { height: 2px; width: 100%; top: 50%; transform: translateY(-50%); }
       .screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
         background: rgba(0,0,0,0.85); font-family: 'Orbitron', monospace; color: #00d4ff; z-index: 100; }
-      .screen h1 { font-size: 42px; font-weight: 700; text-shadow: 0 0 20px #00d4ff; margin-bottom: 16px; }
+      .screen h1 { font-size: 32px; font-weight: 700; text-shadow: 0 0 20px #00d4ff; margin-bottom: 16px; letter-spacing: 2px; }
       .screen p  { font-size: 14px; color: #aaa; margin: 4px 0; line-height: 1.7; text-align: center; }
       .screen button { margin-top: 28px; padding: 14px 40px; background: #00d4ff22; border: 1px solid #00d4ff;
         color: #00d4ff; font-family: 'Orbitron', monospace; font-size: 16px; cursor: pointer; border-radius: 4px;
@@ -113,7 +113,7 @@ export class HUD {
     this.introScreen = document.createElement('div');
     this.introScreen.className = 'screen';
     this.introScreen.innerHTML = `
-      <h1>SURVIVAL ARENA</h1>
+      <h1>IMMORTAL SNAIL SURVIVAL</h1>
       <p>WASD — Move &nbsp;|&nbsp; SPACE — Jump &nbsp;|&nbsp; C — Running Slide</p>
       <p>Left Click — Fire projectile &nbsp;|&nbsp; Right Click (Air) — Ground Slam</p>
       <p>R — Grapple &nbsp;|&nbsp; Double-SHIFT — Speed Burst</p>

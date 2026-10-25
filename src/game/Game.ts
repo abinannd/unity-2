@@ -10,6 +10,8 @@ import { GroundSlam } from '../combat/GroundSlam';
 import { GrappleSystem } from '../combat/GrappleSystem';
 import { HUD } from '../ui/HUD';
 import { SnailEnemy } from '../enemies/SnailEnemy';
+import { EnvironmentProps } from '../arena/EnvironmentProps';
+import { AudioManager } from '../audio/AudioManager';
 import type { Block } from '../obstacles/Block';
 import type { SafeBlock } from '../obstacles/SafeBlock';
 
@@ -33,6 +35,7 @@ export class Game {
 
   private healRing!: THREE.Mesh;
   private snail: SnailEnemy | null = null;
+  private envProps!: EnvironmentProps;
 
   private state: GameState = 'INTRO';
   private survivalTime = 0;
@@ -52,8 +55,8 @@ export class Game {
 
     // ── Scene ───────────────────────────────────────────────────────────
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x050510);
-    this.scene.fog = new THREE.FogExp2(0x050510, 0.025);
+    this.scene.background = new THREE.Color(0x7eb8e8);  // open sky blue
+    this.scene.fog = new THREE.FogExp2(0x9ecce8, 0.010); // light haze, not dark
 
     // ── Camera ──────────────────────────────────────────────────────────
     this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 200);
@@ -96,6 +99,9 @@ export class Game {
 
     this.safeBlockManager = new SafeBlockManager(this.scene);
 
+    // ── Environment props (rocks, trees, stumps) ─────────────────────────
+    this.envProps = new EnvironmentProps(this.scene);
+
     // ── Ground slam & grapple ────────────────────────────────────────────
     this.groundSlam = new GroundSlam(this.scene, this.camera, this.enemySpawner);
     this.grapple = new GrappleSystem(this.scene, this.camera);
@@ -127,6 +133,13 @@ export class Game {
         this.hud.showPause();
       }
     });
+
+    // Resume AudioContext on first user interaction (browser autoplay policy)
+    const resumeAudio = () => {
+      AudioManager.getInstance().resume();
+    };
+    window.addEventListener('click', resumeAudio, { once: false });
+    window.addEventListener('keydown', resumeAudio, { once: false });
 
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -171,7 +184,10 @@ export class Game {
     // Snail — dispose existing, spawn fresh at a corner
     if (this.snail) { this.snail.dispose(); this.snail = null; }
     const snailCorner = new THREE.Vector3(20, 0, 20);
-    this.snail = new SnailEnemy(this.scene, snailCorner);
+    this.snail = new SnailEnemy(this.scene, snailCorner, this.envProps.colliders);
+
+    // Restart music (already started means just loop continues; first run = started via user interaction)
+    AudioManager.getInstance().restartMusic();
 
     this.lastTime = performance.now();
   }
@@ -183,6 +199,9 @@ export class Game {
     this.hud.setSafeBlockIndicator(false);
     this.player.controller.cancelSlide();
     this.grapple.reset();
+    // Game-over sound + stop music
+    AudioManager.getInstance().playGameOver();
+    AudioManager.getInstance().stopMusic();
     if (document.pointerLockElement) document.exitPointerLock();
   }
 

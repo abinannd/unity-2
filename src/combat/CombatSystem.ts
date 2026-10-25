@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { COMBAT, ARENA } from '../game/GameConfig';
 import { EnemySpawner } from '../enemies/EnemySpawner';
+import { AudioManager } from '../audio/AudioManager';
 
 interface Projectile {
   mesh: THREE.Mesh;
@@ -123,6 +124,9 @@ export class CombatSystem {
       life: COMBAT.projectileLifetime,
       hitEnemyIds: new Set(),
     });
+
+    // Play shoot sound
+    AudioManager.getInstance().playShoot();
   }
 
   reset(): void {

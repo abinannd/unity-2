@@ -90,7 +90,7 @@ export const GRAPPLE = {
   speed: 28,                // units/s pull speed
   maxDuration: 0.9,         // seconds before auto-cancel
   targetRadius: 0.55,       // visual sphere radius
-  maxTargets: 3,            // maximum number of active grappling targets (reduced from 6)
+  maxTargets: 2,            // strict maximum of 2 grappling dots at any time
   targetLifetime: 8,        // seconds before a target despawns
   respawnDelayMin: 2,       // minimum delay (seconds) before spawning replacement
   respawnDelayMax: 4,       // maximum delay (seconds) before spawning replacement

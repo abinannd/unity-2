@@ -237,9 +237,14 @@ export class GrappleSystem {
     }
 
     // Ensure we don't have fewer targets than maxTargets without queued respawns
+    // Strict cap: total active + pending must never exceed maxTargets
     while (this.targets.length + this.pendingRespawns.length < GRAPPLE.maxTargets) {
       const delay = GRAPPLE.respawnDelayMin + Math.random() * (GRAPPLE.respawnDelayMax - GRAPPLE.respawnDelayMin);
       this.pendingRespawns.push(delay);
+    }
+    // Trim excess pending to prevent going over cap
+    while (this.targets.length + this.pendingRespawns.length > GRAPPLE.maxTargets) {
+      this.pendingRespawns.pop();
     }
 
     // 4. Activate grapple on R press

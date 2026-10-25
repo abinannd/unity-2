@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ARENA } from '../game/GameConfig';
+import type { PropCollider } from '../arena/EnvironmentProps';
 
 /**
  * Snail enemy — persistent, unkillable, instant-kills on contact.
@@ -9,13 +10,15 @@ export class SnailEnemy {
   readonly mesh: THREE.Group;
   private readonly scene: THREE.Scene;
   private bobTime = 0;
+  private readonly propColliders: PropCollider[];
 
   // Speed much slower than regular enemies (moveSpeed = 3.2)
   private static readonly MOVE_SPEED = 0.6;
   private static readonly COLLIDER_RADIUS = 0.55;
 
-  constructor(scene: THREE.Scene, spawnPos: THREE.Vector3) {
+  constructor(scene: THREE.Scene, spawnPos: THREE.Vector3, propColliders: PropCollider[] = []) {
     this.scene = scene;
+    this.propColliders = propColliders;
     this.mesh = new THREE.Group();
 
     // ── Shell (dome + coil bands) ──────────────────────────────────────
@@ -104,8 +107,36 @@ export class SnailEnemy {
 
     if (dist > 0.1) {
       toPlayer.normalize();
-      this.mesh.position.addScaledVector(toPlayer, SnailEnemy.MOVE_SPEED * dt);
-      this.mesh.rotation.y = Math.atan2(toPlayer.x, toPlayer.z);
+
+      // Simple obstacle avoidance: check ahead for prop colliders, steer tangentially
+      let moveDir = toPlayer.clone();
+      const snailR = SnailEnemy.COLLIDER_RADIUS;
+      const lookAhead = SnailEnemy.MOVE_SPEED * dt * 15 + snailR + 0.5;
+
+      for (const col of this.propColliders) {
+        const dx = col.cx - this.mesh.position.x;
+        const dz = col.cz - this.mesh.position.z;
+        const dist2 = Math.sqrt(dx * dx + dz * dz);
+        const minDist = col.radius + snailR + 0.3;
+        if (dist2 < lookAhead + col.radius) {
+          // How much the snail is heading toward this obstacle
+          const toObs = new THREE.Vector3(dx, 0, dz).normalize();
+          const alignment = moveDir.dot(toObs);
+          if (alignment > 0.1 && dist2 < minDist + 0.4) {
+            // Steer tangentially: perpendicular to toObs
+            const perp = new THREE.Vector3(-toObs.z, 0, toObs.x);
+            // Pick the perpendicular that keeps us going toward player
+            const sign = toPlayer.dot(perp) >= 0 ? 1 : -1;
+            // Blend: mostly perp when very close, partially player-directed when farther
+            const blend = Math.max(0, 1 - (dist2 - snailR) / (minDist + 0.5));
+            moveDir.lerp(perp.clone().multiplyScalar(sign), blend * 0.85);
+            moveDir.normalize();
+          }
+        }
+      }
+
+      this.mesh.position.addScaledVector(moveDir, SnailEnemy.MOVE_SPEED * dt);
+      this.mesh.rotation.y = Math.atan2(moveDir.x, moveDir.z);
     }
 
     // Arena clamp
