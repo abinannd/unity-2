@@ -50,7 +50,7 @@ export const BLOCK = {
 
 export const ENEMY = {
   maxEnemies: 6,
-  spawnInterval: 5,     // seconds between spawns
+  spawnInterval: 4.25,  // seconds between spawns (~17% faster than original 5s)
   health: 40,           // ordinary enemy: exactly 2 projectile hits to kill (20 dmg)
   redHealth: 60,        // red enemy: exactly 3 projectile hits to kill (20 dmg)
   redSpawnChance: 0.4,  // probability of spawning a red enemy
@@ -59,6 +59,7 @@ export const ENEMY = {
   attackDamage: 8,
   attackCooldown: 1.2,
   detectionRange: 30,
+  spinningRodSpawnChance: 0.15, // probability of spawning a spinning-rod enemy
   colliderRadius: 0.4,
 };
 
@@ -113,7 +114,7 @@ export const DIFFICULTY = {
 };
 
 export const SLIDE = {
-  duration: 0.75,           // seconds slide animation and momentum lasts
+  duration: 0.63,           // seconds slide animation and momentum lasts (~16% shorter than original 0.75s)
   initialSpeed: 13.5,       // starting slide speed burst (tapers to run speed)
   cooldown: 0.35,           // seconds before next slide can be triggered
 };

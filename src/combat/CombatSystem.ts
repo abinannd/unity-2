@@ -58,7 +58,7 @@ export class CombatSystem {
       }
       if (p.life <= 0) { toRemove.push(p); continue; }
 
-      // Enemy hit — each projectile only damages each enemy once
+      // Regular enemy hits
       const enemies = this.enemySpawner.getAliveEnemies();
       let hit = false;
       for (const enemy of enemies) {
@@ -73,7 +73,27 @@ export class CombatSystem {
             this.enemySpawner.notifyKill();
           }
           hit = true;
-          break; // one enemy per projectile per frame
+          break;
+        }
+      }
+
+      // Spinning-rod enemy hits (same damage logic)
+      if (!hit) {
+        const spinners = this.enemySpawner.getAliveSpinners();
+        for (const spinner of spinners) {
+          if (spinner.isDead) continue;
+          const uid = spinner._uid;
+          if (p.hitEnemyIds.has(uid)) continue;
+          if (spinner.checkHit(pos, prevPos, COMBAT.projectileRadius)) {
+            p.hitEnemyIds.add(uid);
+            const wasAlive = !spinner.isDead;
+            spinner.takeDamage(COMBAT.projectileDamage);
+            if (wasAlive && spinner.isDead) {
+              this.enemySpawner.notifyKill();
+            }
+            hit = true;
+            break;
+          }
         }
       }
       if (hit) { toRemove.push(p); }

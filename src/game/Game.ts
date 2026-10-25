@@ -9,6 +9,7 @@ import { CombatSystem } from '../combat/CombatSystem';
 import { GroundSlam } from '../combat/GroundSlam';
 import { GrappleSystem } from '../combat/GrappleSystem';
 import { HUD } from '../ui/HUD';
+import { SnailEnemy } from '../enemies/SnailEnemy';
 import type { Block } from '../obstacles/Block';
 import type { SafeBlock } from '../obstacles/SafeBlock';
 
@@ -31,6 +32,7 @@ export class Game {
   private hud!: HUD;
 
   private healRing!: THREE.Mesh;
+  private snail: SnailEnemy | null = null;
 
   private state: GameState = 'INTRO';
   private survivalTime = 0;
@@ -165,6 +167,12 @@ export class Game {
     this.combat.reset();
     this.groundSlam.reset();
     this.grapple.reset();
+
+    // Snail — dispose existing, spawn fresh at a corner
+    if (this.snail) { this.snail.dispose(); this.snail = null; }
+    const snailCorner = new THREE.Vector3(20, 0, 20);
+    this.snail = new SnailEnemy(this.scene, snailCorner);
+
     this.lastTime = performance.now();
   }
 
@@ -198,6 +206,25 @@ export class Game {
       this.blockSpawner.update(dt, playerPos);
       this.safeBlockManager.update(dt, playerPos);
       this.combat.update(dt, playerPos);
+
+      // ── Snail update & instant-death contact ──────────────────────────
+      if (this.snail) {
+        this.snail.update(dt, playerPos);
+        if (this.snail.checkPlayerContact(playerPos) && !this.player.health.isDead) {
+          this.player.health.takeDamage(9999); // instant death
+        }
+      }
+
+      // ── Spinning rod contact damage ────────────────────────────────────
+      const isSliding = this.player.controller.sliding;
+      for (const spinner of this.enemySpawner.getAliveSpinners()) {
+        if (spinner.checkRodContact(playerPos, 0.4, isSliding)) {
+          spinner.applyRodDamage();
+          if (!this.player.health.isDead) {
+            this.player.health.takeDamage(10);
+          }
+        }
+      }
 
       // ── Platform collision ─────────────────────────────────────────────
       const regularBlocks = this.blockSpawner.getActiveBlocks();
